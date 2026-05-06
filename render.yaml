@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: finastra-api
+    runtime: node
+    plan: free
+    rootDir: .
+    autoDeploy: true
+    healthCheckPath: /api/v1/healthz
+    buildCommand: npm install && npm run build --workspace=@finastra/types && npm run build --workspace=@finastra/api && cd apps/api && npx prisma generate
+    startCommand: cd apps/api && npm run prisma:deploy && npm run start

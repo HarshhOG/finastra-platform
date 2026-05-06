@@ -1,0 +1,674 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  TEAM_ADMIN
+  FACULTY_COORDINATOR
+  CAMPUS_REPRESENTATIVE
+  PARTICIPANT
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum ApprovalStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
+
+enum RegistrationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WAITLISTED
+}
+
+enum RegistrationWindowStatus {
+  UPCOMING
+  OPEN
+  CLOSED
+  WAITLIST
+}
+
+enum PaymentStatus {
+  PENDING
+  REQUIRES_VERIFICATION
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum AssetType {
+  IMAGE
+  VIDEO
+  DOCUMENT
+}
+
+enum EventMode {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
+enum AnnouncementTone {
+  INFO
+  ALERT
+  SUCCESS
+}
+
+enum ChangeAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  WHATSAPP
+  PUSH
+}
+
+enum ExportStatus {
+  QUEUED
+  COMPLETED
+  FAILED
+}
+
+enum DynamicFieldType {
+  text
+  email
+  tel
+  textarea
+  number
+  select
+  date
+  file
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  label       String
+  description String?
+  roles       RolePermission[]
+  createdAt   DateTime         @default(now())
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  role         UserRole
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([role, permissionId])
+}
+
+model User {
+  id                 String                 @id @default(cuid())
+  name               String
+  email              String                 @unique
+  passwordHash       String?
+  googleId           String?                @unique
+  phone              String?
+  role               UserRole               @default(PARTICIPANT)
+  status             UserStatus             @default(ACTIVE)
+  refreshTokenHash   String?
+  lastLoginAt        DateTime?
+  collegeId          String?
+  college            College?               @relation(fields: [collegeId], references: [id])
+  campusRepProfile   CampusRepresentative?
+  approvalsSubmitted ApprovalRequest[]      @relation("ApprovalSubmittedBy")
+  approvalsReviewed  ApprovalRequest[]      @relation("ApprovalReviewedBy")
+  assets             Asset[]                @relation("AssetCreator")
+  announcements      Announcement[]         @relation("AnnouncementCreator")
+  auditLogs          AuditLog[]             @relation("AuditActor")
+  contentVersions    ContentVersion[]       @relation("ContentVersionAuthor")
+  eventAssignments   EventAdminAssignment[]
+  createdEvents      Event[]                @relation("EventCreatedBy")
+  updatedEvents      Event[]                @relation("EventUpdatedBy")
+  exportJobs         ExportJob[]            @relation("ExportJobCreator")
+  notifications      Notification[]
+  verifiedPayments   Payment[]              @relation("PaymentVerifier")
+  createdTeams       Team[]                 @relation("TeamCreator")
+  eventRegistrations EventRegistration[]    @relation("EventRegistrationSubmitter")
+  collegeForms       CollegeRegistration[]  @relation("CollegeRegistrationSubmitter")
+  crForms            CrRegistration[]       @relation("CrRegistrationSubmitter")
+  attendanceScans    AttendanceScan[]       @relation("AttendanceScanner")
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+}
+
+model College {
+  id                    String                 @id @default(cuid())
+  name                  String
+  code                  String                 @unique
+  city                  String
+  state                 String
+  website               String?
+  facultyCoordinator    String?
+  facultyCoordinatorEmail String?
+  facultyCoordinatorPhone String?
+  users                 User[]
+  campusReps            CampusRepresentative[]
+  teams                 Team[]
+  registrations         EventRegistration[]
+  collegeForms          CollegeRegistration[]
+  crForms               CrRegistration[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+}
+
+model CampusRepresentative {
+  id           String             @id @default(cuid())
+  userId       String             @unique
+  collegeId    String
+  enrollmentId String
+  status       RegistrationStatus @default(APPROVED)
+  verifiedAt   DateTime?
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  college      College            @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PageSection {
+  id        String   @id @default(cuid())
+  pageSlug  String
+  key       String
+  title     String
+  body      String
+  accent    String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pageSlug, key])
+}
+
+model TeamMember {
+  id          String   @id @default(cuid())
+  name        String
+  title       String
+  division    String
+  email       String
+  linkedinUrl String?
+  avatarId    String?
+  sortOrder   Int      @default(0)
+  avatar      Asset?   @relation("TeamMemberAvatar", fields: [avatarId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ContactChannel {
+  id        String   @id @default(cuid())
+  label     String
+  value     String
+  href      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DynamicForm {
+  id             String             @id @default(cuid())
+  slug           String             @unique
+  title          String
+  description    String
+  submitLabel    String
+  successMessage String
+  fields         DynamicFormField[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model DynamicFormField {
+  id             String           @id @default(cuid())
+  formId         String
+  name           String
+  label          String
+  type           DynamicFieldType
+  placeholder    String?
+  required       Boolean          @default(false)
+  helperText     String?
+  validationRule String?
+  options        Json?
+  sortOrder      Int              @default(0)
+  form           DynamicForm      @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, name])
+}
+
+model Asset {
+  id                 String              @id @default(cuid())
+  storageKey         String
+  url                String
+  type               AssetType
+  altText            String?
+  blurDataUrl        String?
+  createdById        String?
+  createdBy          User?               @relation("AssetCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  heroEvents         Event[]             @relation("EventHeroAsset")
+  bannerEvents       Event[]             @relation("EventBannerAsset")
+  teamMemberAvatars  TeamMember[]        @relation("TeamMemberAvatar")
+  sponsorLogos       Sponsor[]           @relation("SponsorLogo")
+  galleryAssignments EventGalleryAsset[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model Sponsor {
+  id         String         @id @default(cuid())
+  name       String
+  tier       String
+  websiteUrl String?
+  logoId     String?
+  logo       Asset?         @relation("SponsorLogo", fields: [logoId], references: [id])
+  events     EventSponsor[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
+model Event {
+  id                   String                    @id @default(cuid())
+  slug                 String                    @unique
+  name                 String
+  tagline              String
+  category             String
+  shortDescription     String
+  longDescription      String
+  venue                String
+  mode                 EventMode
+  accent               String
+  participantLimit     Int
+  minTeamSize          Int
+  maxTeamSize          Int
+  workflowStatus       ApprovalStatus           @default(PUBLISHED)
+  registrationStatus   RegistrationWindowStatus @default(OPEN)
+  countdownTo          DateTime?
+  heroAssetId          String?
+  bannerAssetId        String?
+  createdById          String?
+  updatedById          String?
+  heroAsset            Asset?                    @relation("EventHeroAsset", fields: [heroAssetId], references: [id])
+  bannerAsset          Asset?                    @relation("EventBannerAsset", fields: [bannerAssetId], references: [id])
+  createdBy            User?                     @relation("EventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy            User?                     @relation("EventUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  adminAssignments     EventAdminAssignment[]
+  sections             EventSection[]
+  rules                EventRule[]
+  rounds               EventRound[]
+  faqs                 EventFaq[]
+  coordinators         EventCoordinator[]
+  prizes               EventPrize[]
+  schedules            EventSchedule[]
+  judgingCriteria      EventJudgingCriterion[]
+  downloads            EventDownload[]
+  gallery              EventGalleryAsset[]
+  sponsors             EventSponsor[]
+  announcements        Announcement[]
+  registrations        EventRegistration[]
+  leaderboardEntries   LeaderboardEntry[]
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+}
+
+model EventSection {
+  id        String   @id @default(cuid())
+  eventId   String
+  key       String
+  title     String
+  content   String
+  sortOrder Int      @default(0)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, key])
+}
+
+model EventRule {
+  id          String   @id @default(cuid())
+  eventId     String
+  title       String
+  description String
+  sortOrder   Int      @default(0)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventRound {
+  id           String   @id @default(cuid())
+  eventId      String
+  title        String
+  sequence     Int
+  summary      String
+  judgingFocus String
+  startsAt     DateTime?
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventFaq {
+  id        String   @id @default(cuid())
+  eventId   String
+  question  String
+  answer    String
+  sortOrder Int      @default(0)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventCoordinator {
+  id      String @id @default(cuid())
+  eventId String
+  name    String
+  role    String
+  email   String
+  phone   String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventPrize {
+  id      String @id @default(cuid())
+  eventId String
+  label   String
+  value   String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventSchedule {
+  id          String   @id @default(cuid())
+  eventId     String
+  label       String
+  description String
+  startsAt    DateTime
+  venue       String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventJudgingCriterion {
+  id          String @id @default(cuid())
+  eventId     String
+  title       String
+  description String
+  weightage   Int
+  event       Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventDownload {
+  id      String @id @default(cuid())
+  eventId String
+  title   String
+  url     String
+  kind    String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventSponsor {
+  id        String   @id @default(cuid())
+  eventId   String
+  sponsorId String
+  sortOrder Int      @default(0)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sponsor   Sponsor  @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, sponsorId])
+}
+
+model EventGalleryAsset {
+  id        String   @id @default(cuid())
+  eventId   String
+  assetId   String
+  sortOrder Int      @default(0)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, assetId])
+}
+
+model Announcement {
+  id          String           @id @default(cuid())
+  eventId      String?
+  title        String
+  body         String
+  tone         AnnouncementTone @default(INFO)
+  publishedAt  DateTime
+  createdById  String?
+  createdBy    User?            @relation("AnnouncementCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  event        Event?           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model Team {
+  id                  String              @id @default(cuid())
+  name                String
+  code                String              @unique
+  leaderName          String
+  leaderEmail         String
+  leaderPhone         String
+  size                Int
+  specialRequirements String?
+  collegeId           String
+  createdById         String?
+  college             College             @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdBy           User?               @relation("TeamCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  participants        Participant[]
+  registrations       EventRegistration[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+}
+
+model Participant {
+  id              String           @id @default(cuid())
+  teamId           String
+  fullName         String
+  email            String
+  phone            String
+  department       String
+  yearOfStudy      String
+  isLeader         Boolean          @default(false)
+  qrCodeValue      String?
+  team             Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  attendanceScans  AttendanceScan[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model EventRegistration {
+  id            String             @id @default(cuid())
+  eventId        String
+  teamId         String
+  collegeId      String
+  submittedById  String?
+  status         RegistrationStatus @default(SUBMITTED)
+  paymentStatus  PaymentStatus      @default(PENDING)
+  approvalStatus ApprovalStatus     @default(PENDING)
+  notes          String?
+  qrCodeValue    String?
+  event          Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  team           Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  college        College            @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  submittedBy    User?              @relation("EventRegistrationSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  payments       Payment[]
+  leaderboard    LeaderboardEntry[]
+  attendance     AttendanceScan[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  registrationId String
+  amount        Decimal       @db.Decimal(10, 2)
+  currency      String        @default("INR")
+  reference     String        @unique
+  proofUrl      String?
+  status        PaymentStatus @default(PENDING)
+  verifiedById  String?
+  paidAt        DateTime?
+  registration  EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  verifiedBy    User?         @relation("PaymentVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model ApprovalRequest {
+  id             String         @id @default(cuid())
+  entityType     String
+  entityId       String
+  action         ChangeAction
+  status         ApprovalStatus @default(PENDING)
+  beforeSnapshot Json?
+  afterSnapshot  Json?
+  diff           Json
+  notes          String?
+  submittedById  String
+  reviewedById   String?
+  submittedBy    User           @relation("ApprovalSubmittedBy", fields: [submittedById], references: [id], onDelete: Cascade)
+  reviewedBy     User?          @relation("ApprovalReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime       @default(now())
+  reviewedAt     DateTime?
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId     String?
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  actor       User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}
+
+model ExportJob {
+  id          String       @id @default(cuid())
+  type        String
+  filters     Json?
+  status      ExportStatus @default(QUEUED)
+  downloadUrl String?
+  createdById String?
+  createdBy   User?        @relation("ExportJobCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String?
+  title     String
+  message   String
+  channel   NotificationChannel @default(IN_APP)
+  isRead    Boolean             @default(false)
+  user      User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime            @default(now())
+}
+
+model AttendanceScan {
+  id               String             @id @default(cuid())
+  eventRegistrationId String
+  participantId    String?
+  scannedById      String?
+  checkpoint       String
+  scannedAt        DateTime           @default(now())
+  eventRegistration EventRegistration @relation(fields: [eventRegistrationId], references: [id], onDelete: Cascade)
+  participant      Participant?       @relation(fields: [participantId], references: [id], onDelete: SetNull)
+  scannedBy        User?              @relation("AttendanceScanner", fields: [scannedById], references: [id], onDelete: SetNull)
+}
+
+model LeaderboardEntry {
+  id                  String            @id @default(cuid())
+  eventId             String
+  eventRegistrationId String
+  score               Decimal           @db.Decimal(6, 2)
+  rank                Int
+  remarks             String?
+  event               Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registration        EventRegistration @relation(fields: [eventRegistrationId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, eventRegistrationId])
+}
+
+model ContentVersion {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  version    Int
+  snapshot   Json
+  createdById String?
+  createdBy  User?    @relation("ContentVersionAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+
+  @@unique([entityType, entityId, version])
+}
+
+model EventAdminAssignment {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  scope     String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, userId])
+}
+
+model CollegeRegistration {
+  id                   String             @id @default(cuid())
+  collegeId            String?
+  collegeName          String
+  collegeCity          String?
+  collegeState         String?
+  facultyName          String
+  facultyEmail         String
+  facultyPhone         String
+  crNomineeName        String
+  crNomineeEmail       String
+  crNomineePhone       String
+  documentUrl          String?
+  status               RegistrationStatus @default(SUBMITTED)
+  paymentStatus        PaymentStatus      @default(PENDING)
+  submittedById        String?
+  college              College?           @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  submittedBy          User?              @relation("CollegeRegistrationSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+model CrRegistration {
+  id                    String             @id @default(cuid())
+  collegeId             String
+  fullName              String
+  email                 String
+  phone                 String
+  enrollmentId          String
+  generatedUsername     String?
+  generatedPasswordHash String?
+  status                RegistrationStatus @default(SUBMITTED)
+  submittedById         String?
+  college               College            @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  submittedBy           User?              @relation("CrRegistrationSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+}

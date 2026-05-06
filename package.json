@@ -1,0 +1,24 @@
+{
+  "name": "finastra-arthyug-platform",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev --workspace=@finastra/api",
+    "dev:web": "npm run dev --workspace=@finastra/web",
+    "build": "npm run build --workspace=@finastra/types && npm run build --workspace=@finastra/api && npm run build --workspace=@finastra/web",
+    "ci": "npm run typecheck && npm run build",
+    "lint": "npm run lint --workspace=@finastra/types && npm run lint --workspace=@finastra/api && npm run lint --workspace=@finastra/web",
+    "typecheck": "npm run typecheck --workspace=@finastra/types && npm run typecheck --workspace=@finastra/api && npm run typecheck --workspace=@finastra/web",
+    "prisma:generate": "npm run prisma:generate --workspace=@finastra/api",
+    "prisma:migrate": "npm run prisma:migrate --workspace=@finastra/api",
+    "prisma:seed": "npm run prisma:seed --workspace=@finastra/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
