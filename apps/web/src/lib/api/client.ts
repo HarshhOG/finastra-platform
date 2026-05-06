@@ -1,12 +1,33 @@
-const fallbackBaseUrl = "http://localhost:4000/api/v1";
-const fallbackSiteUrl = "http://localhost:3000";
+const localBaseUrl = "http://localhost:4000/api/v1";
+const productionBaseUrl = "https://finastra-api.onrender.com/api/v1";
+const localSiteUrl = "http://localhost:3000";
+
+function getFallbackBaseUrl() {
+  return process.env.NODE_ENV === "production" ? productionBaseUrl : localBaseUrl;
+}
+
+function getFallbackSiteUrl() {
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL;
+  }
+
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  return localSiteUrl;
+}
 
 export function getApiBaseUrl() {
   if (typeof window === "undefined") {
-    return process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? fallbackBaseUrl;
+    return process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? getFallbackBaseUrl();
   }
 
-  return process.env.NEXT_PUBLIC_API_URL ?? fallbackBaseUrl;
+  return process.env.NEXT_PUBLIC_API_URL ?? getFallbackBaseUrl();
 }
 
 export async function fetchPublicJson<T>(
@@ -55,6 +76,6 @@ export async function postPublicJson<T>(
 }
 
 export function buildAbsoluteUrl(pathname: string) {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? fallbackSiteUrl;
+  const base = getFallbackSiteUrl();
   return `${base}${pathname}`;
 }
