@@ -1,7 +1,9 @@
+import "dotenv/config";
 import { PrismaClient, UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { createPrismaClientOptions } from "../src/database/prisma-client-options";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient(createPrismaClientOptions());
 
 const eventBlueprints = [
   ["market-masters", "Market Masters", "Live trading arena"],
